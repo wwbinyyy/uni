@@ -1,0 +1,230 @@
+diff --git a/unichoice/package.json b/unichoice/package.json
+index 0000000..1111111 100644
+--- a/unichoice/package.json
++++ b/unichoice/package.json
+@@ -1,50 +1,50 @@
+ {
+-  "name": "unichoice-old",
++  "name": "unichoice",
+   "version": "1.0.0",
+   "private": true,
+   "scripts": {
+     "dev": "next dev",
+     "build": "next build",
+     "start": "next start"
+   },
+-  "dependencies": {
+-    "express": "^4.x",
+-    "..." : "..."
++  "dependencies": {
++    "next": "14.1.0",
++    "react": "18.2.0",
++    "react-dom": "18.2.0"
+   },
+-  "devDependencies": {
+-    "@rollup/rollup-darwin-arm64": "...",
+-    "@esbuild/darwin-arm64": "...",
++  "devDependencies": {
++    "typescript": "^5.0.0",
++    "@types/node": "^20.0.0",
++    "@types/react": "^18.0.0"
+   }
+ }
+diff --git a/unichoice/next.config.js b/unichoice/next.config.js
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/unichoice/next.config.js
+@@ -0,0 +1,5 @@
+ /** @type {import('next').NextConfig} */
+ const nextConfig = {};
+ module.exports = nextConfig;
+diff --git a/unichoice/tsconfig.json b/unichoice/tsconfig.json
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ b/unichoice/tsconfig.json
+@@ -0,0 +1,30 @@
+ {
+   "compilerOptions": {
+     "target": "es5",
+     "lib": ["dom", "dom.iterable", "esnext"],
+     "allowJs": true,
+     "skipLibCheck": true,
+     "strict": false,
+     "forceConsistentCasingInFileNames": true,
+     "noEmit": true,
+     "esModuleInterop": true,
+     "module": "esnext",
+     "moduleResolution": "node",
+     "resolveJsonModule": true,
+     "isolatedModules": true,
+     "jsx": "preserve"
+   },
+   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+   "exclude": ["node_modules"]
+ }
+diff --git a/unichoice/data/universities.json b/unichoice/data/universities.json
+new file mode 100644
+index 0000000..4444444
+--- /dev/null
++++ b/unichoice/data/universities.json
+@@ -0,0 +1,15 @@
+ [
+   {
+     "slug": "harvard-university",
+     "name": "Harvard University",
+     "country": "USA",
+     "city": "Cambridge",
+     "ranking": 1,
+     "tuition": "52000"
+   },
+   {
+     "slug": "stanford-university",
+     "name": "Stanford University",
+     "country": "USA",
+     "city": "Stanford",
+     "ranking": 2,
+     "tuition": "54000"
+   }
+ ]
+diff --git a/unichoice/pages/api/universities/index.ts b/unichoice/pages/api/universities/index.ts
+new file mode 100644
+index 0000000..5555555
+--- /dev/null
++++ b/unichoice/pages/api/universities/index.ts
+@@ -0,0 +1,40 @@
+ import universities from "@/data/universities.json";
+ 
+ export default function handler(req, res) {
+   const q = (req.query.q || "").toString().toLowerCase();
+ 
+   if (!q) return res.status(200).json(universities);
+ 
+   const results = universities.filter(u =>
+     u.name.toLowerCase().includes(q) ||
+     u.country.toLowerCase().includes(q) ||
+     u.city.toLowerCase().includes(q)
+   );
+ 
+   res.status(200).json(results);
+ }
+diff --git a/unichoice/pages/api/universities/[slug].ts b/unichoice/pages/api/universities/[slug].ts
+new file mode 100644
+index 0000000..6666666
+--- /dev/null
++++ b/unichoice/pages/api/universities/[slug].ts
+@@ -0,0 +1,30 @@
+ import universities from "@/data/universities.json";
+ 
+ export default function handler(req, res) {
+   const { slug } = req.query;
+   const uni = universities.find(u => u.slug === slug);
+   if (!uni) {
+     return res.status(404).json({ message: "University not found" });
+   }
+   res.status(200).json(uni);
+ }
+diff --git a/unichoice/pages/index.tsx b/unichoice/pages/index.tsx
+new file mode 100644
+index 0000000..7777777
+--- /dev/null
++++ b/unichoice/pages/index.tsx
+@@ -0,0 +1,45 @@
+ import { useState, useEffect } from "react";
+ 
+ export default function Home() {
+   const [query, setQuery] = useState("");
+   const [universities, setUniversities] = useState([]);
+ 
+   useEffect(() => {
+     fetch("/api/universities")
+       .then(res => res.json())
+       .then(data => setUniversities(data));
+   }, []);
+ 
+   const search = async () => {
+     const res = await fetch(`/api/universities?q=${query}`);
+     setUniversities(await res.json());
+   };
+ 
+   return (
+     <div style={{ padding: 40 }}>
+       <h1>UniChoice</h1>
+       <input
+         placeholder="Search…"
+         value={query}
+         onChange={e => setQuery(e.target.value)}
+         style={{ padding: 10, width: 300 }}
+       />
+       <button onClick={search} style={{ marginLeft: 10 }}>
+         Search
+       </button>
+       <ul>
+         {universities.map(u => (
+           <li key={u.slug}>
+             <a href={`/universities/${u.slug}`}>
+               {u.name} — {u.country}
+             </a>
+           </li>
+         ))}
+       </ul>
+     </div>
+   );
+ }
+diff --git a/unichoice/pages/universities/[slug].tsx b/unichoice/pages/universities/[slug].tsx
+new file mode 100644
+index 0000000..8888888
+--- /dev/null
++++ b/unichoice/pages/universities/[slug].tsx
+@@ -0,0 +1,40 @@
+ import { useRouter } from "next/router";
+ import { useEffect, useState } from "react";
+ 
+ export default function UniversityPage() {
+   const router = useRouter();
+   const { slug } = router.query;
+   const [uni, setUni] = useState(null);
+ 
+   useEffect(() => {
+     if (!slug) return;
+     fetch(`/api/universities/${slug}`)
+       .then(res => res.json())
+       .then(setUni);
+   }, [slug]);
+ 
+   if (!uni) return <div>Loading...</div>;
+ 
+   return (
+     <div style={{ padding: 40 }}>
+       <h1>{uni.name}</h1>
+       <p><b>Country:</b> {uni.country}</p>
+       <p><b>City:</b> {uni.city}</p>
+       <p><b>Ranking:</b> {uni.ranking}</p>
+       <p><b>Tuition:</b> {uni.tuition}</p>
+     </div>
+   );
+ }
+diff --git a/unichoice/styles/globals.css b/unichoice/styles/globals.css
+new file mode 100644
+index 0000000..9999999
+--- /dev/null
++++ b/unichoice/styles/globals.css
+@@ -0,0 +1,6 @@
+ body {
+   font-family: sans-serif;
+   margin: 0;
+   padding: 0;
+}
+diff --git a/unichoice/pages/_app.tsx b/unichoice/pages/_app.tsx
+new file mode 100644
+index 0000000..aaaaaaa
+--- /dev/null
++++ b/unichoice/pages/_app.tsx
+@@ -0,0 +1,15 @@
+ import "@/styles/globals.css";
+ import type { AppProps } from "next/app";
+ 
+ export default function App({ Component, pageProps }: AppProps) {
+   return <Component {...pageProps} />;
+ }
